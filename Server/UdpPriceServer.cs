@@ -8,6 +8,8 @@ public class UdpPriceServer
 {
     private readonly UdpClient _server = new(8080);
     private readonly Dictionary<IPEndPoint, RequestLimiter> _requestLimiters = new();
+    private readonly ClientManager _clientManager = new();
+    private readonly int _maxClients = 5;
 
     public async Task StartAsync()
     {
@@ -15,6 +17,8 @@ public class UdpPriceServer
 
         while (true)
         {
+            _clientManager.DisconnectInactiveClients();
+            
             var result = await _server.ReceiveAsync();
             string request = Encoding.UTF8.GetString(result.Buffer);
             IPEndPoint clientEndPoint = result.RemoteEndPoint;
@@ -28,6 +32,16 @@ public class UdpPriceServer
                 await _server.SendAsync(limitData, limitData.Length, clientEndPoint);
                 continue;
             }
+            
+            if (_clientManager.GetActiveClientsCount() >= _maxClients)
+            {
+                string clientLimitExceededMessage = "Максимальна кількість одночасно підключених клієнтів досягнута.";
+                byte[] clientLimitData = Encoding.UTF8.GetBytes(clientLimitExceededMessage);
+                await _server.SendAsync(clientLimitData, clientLimitData.Length, clientEndPoint);
+                continue;
+            }
+            
+            _clientManager.UpdateLastActivity(clientEndPoint);
 
             string response = PriceDatabase.GetPrice(request);
             byte[] data = Encoding.UTF8.GetBytes(response);
