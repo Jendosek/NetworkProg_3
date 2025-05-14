@@ -28,6 +28,7 @@ public class UdpPriceServer
             if (!IsRequestAllowed(clientEndPoint))
             {
                 string limitExceededMessage = "Перевищено ліміт запитів (не більше 10 за годину)";
+                Console.WriteLine($"Ліміт запитів перевищено для {clientEndPoint}");
                 byte[] limitData = Encoding.UTF8.GetBytes(limitExceededMessage);
                 await _server.SendAsync(limitData, limitData.Length, clientEndPoint);
                 continue;
@@ -36,16 +37,19 @@ public class UdpPriceServer
             if (_clientManager.GetActiveClientsCount() >= _maxClients)
             {
                 string clientLimitExceededMessage = "Максимальна кількість одночасно підключених клієнтів досягнута.";
+                Console.WriteLine($"Максимальна кількість клієнтів досягнута для {clientEndPoint}");
                 byte[] clientLimitData = Encoding.UTF8.GetBytes(clientLimitExceededMessage);
                 await _server.SendAsync(clientLimitData, clientLimitData.Length, clientEndPoint);
                 continue;
             }
             
             _clientManager.UpdateLastActivity(clientEndPoint);
+            Console.WriteLine($"Оновлення активності {clientEndPoint}");
 
             string response = PriceDatabase.GetPrice(request);
             byte[] data = Encoding.UTF8.GetBytes(response);
             
+            Console.WriteLine($"Відповідь для {clientEndPoint}: {response}");
             await _server.SendAsync(data, data.Length, clientEndPoint);
         }
     }
